@@ -85,6 +85,7 @@
         <div class="stat"><b id="st-entries">0</b><span>심사한 콘텐츠</span></div>
         <div class="stat"><b id="st-comments">0</b><span>남긴 코멘트</span></div>
         <button class="btn ghost refresh" id="refresh" type="button">새로고침</button>
+        <button class="btn ghost" id="export" type="button">JSON 내보내기</button>
       </div>
       <div class="sortbar" id="sortbar">정렬
         <button data-k="total" aria-pressed="true">총점</button>
@@ -426,6 +427,29 @@ $("sortbar").addEventListener("click", (ev) => {
   paintResults();
 });
 $("refresh").addEventListener("click", () => { ballots = null; paintResults(); });
+$("export").addEventListener("click", () => {
+  if (!ballots) return;
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const rows = aggregate().sort((a, b) => b.total - a.total || b.n - a.n);
+  const data = {
+    exportedAt: new Date().toISOString(),
+    voters: ballots.length,
+    criteria: CRITS.map((c) => ({ key: c.key, question: c.q })),
+    results: rows.map((r, i) => ({
+      rank: i + 1, id: r.e.id, title: r.e.title, desc: r.e.desc, url: r.e.url, post: r.e.post,
+      voters: r.n,
+      avg: Object.fromEntries(CRITS.map((c, ci) => [c.key, r2(r.avg[ci])])),
+      total: r2(r.total),
+      comments: r.comments,
+    })),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "codmos-score-results-" + new Date().toISOString().slice(0, 10) + ".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
 
 // ── 총합 ──
 function validScore(v) { return Number.isInteger(v) && v >= 1 && v <= 10; }
@@ -463,11 +487,11 @@ async function paintResults() {
   if ($("view-result").hidden) return;
   if (ballots === null) {
     if (loading) return;
-    loading = true; $("refresh").disabled = true;
+    loading = true; $("refresh").disabled = true; $("export").disabled = true;
     $("ranks").innerHTML = '<p class="empty">결과를 불러오는 중입니다</p>';
     try { ballots = await listBallots(); }
     catch (e) { $("ranks").innerHTML = '<p class="empty">결과를 불러오지 못했습니다. 새로고침을 눌러 주세요.</p>'; return; }
-    finally { loading = false; $("refresh").disabled = false; }
+    finally { loading = false; $("refresh").disabled = false; $("export").disabled = !ballots; }
   }
   const rows = aggregate();
   const key = sortKey === "total" ? (r) => r.total : (r) => r.avg[+sortKey];
