@@ -79,7 +79,6 @@
 
 <main id="view-result" hidden>
   <div class="wrap">
-    <div id="result-lock" class="notice">총합 결과는 투표를 제출한 뒤에 볼 수 있습니다. 다른 사람의 점수가 내 판단에 영향을 주지 않도록 하기 위해서입니다.</div>
     <div id="result-body" hidden>
       <div class="stats">
         <div class="stat"><b id="st-voters">0</b><span>참여한 사람</span></div>
@@ -429,8 +428,6 @@ $("sortbar").addEventListener("click", (ev) => {
 $("refresh").addEventListener("click", () => { ballots = null; paintResults(); });
 
 // ── 총합 ──
-// 주최자는 주소 끝에 #results를 붙여 투표하지 않고도 결과를 본다.
-function canSeeResults() { return !!myBallot || location.hash === "#results"; }
 function validScore(v) { return Number.isInteger(v) && v >= 1 && v <= 10; }
 function aggregate() {
   const agg = {};
@@ -464,10 +461,6 @@ const fmt = (v) => v.toFixed(1);
 let loading = false;
 async function paintResults() {
   if ($("view-result").hidden) return;
-  const see = canSeeResults();
-  $("result-lock").hidden = see;
-  $("result-body").hidden = !see;
-  if (!see) return;
   if (ballots === null) {
     if (loading) return;
     loading = true; $("refresh").disabled = true;
