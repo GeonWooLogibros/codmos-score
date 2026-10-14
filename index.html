@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>코드모스 콘텐츠 심사</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>코드모스 콘텐츠 심사</h1>
+      <p class="lead">커뮤니티에 올라온 콘텐츠를 하나씩 해 보고 교육성, 재미, 참신함에 1~10점을 매겨 주세요. 고르지 않은 항목은 1점으로 들어가니 하고 싶은 콘텐츠만 매겨도 됩니다. 투표는 익명이며 투표 코드 하나로 한 번만 낼 수 있습니다.</p>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button id="tab-vote" role="tab" aria-selected="true">심사하기</button>
+      <button id="tab-result" role="tab" aria-selected="false">총합 결과</button>
+    </nav>
+  </header>
+  <div id="status" class="notice" hidden></div>
+</div>
+
+<main id="view-vote">
+  <div class="wrap">
+    <section class="gate" id="gate">
+      <h2>투표 코드 입력</h2>
+      <p>받은 투표 코드 12자리를 넣어 주세요. 코드는 누가 투표했는지 알리지 않고, 한 사람이 한 번만 투표하게 하는 데에만 쓰입니다.</p>
+      <form id="code-form">
+        <input id="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="예: K7QM-P2XA-HB3N" maxlength="18" aria-label="투표 코드">
+        <button class="btn" id="code-go" type="submit">시작하기</button>
+      </form>
+      <div class="err" id="code-err" hidden></div>
+    </section>
+
+    <div id="ballot-area" hidden>
+      <div class="who">
+        <span>투표 코드 <code id="who-code"></code></span>
+        <button class="linkbtn" id="switch-code" type="button">다른 코드로 바꾸기</button>
+      </div>
+      <div class="voted" id="voted" hidden>
+        <p id="voted-text">이 코드로 투표를 냈습니다. 아래는 내가 낸 점수입니다.</p>
+        <button class="btn ghost" id="cancel-vote" type="button">투표 취소하고 다시 하기</button>
+        <div class="confirm" id="cancel-confirm" hidden>
+          <span>낸 투표를 지우고 점수를 다시 고칩니다. 다시 제출해야 반영됩니다.</span>
+          <button class="btn ghost" id="cancel-no" type="button">그대로 두기</button>
+          <button class="btn" id="cancel-yes" type="button">투표 취소</button>
+        </div>
+      </div>
+      <div class="legend">
+        <span style="--c: var(--edu)">교육: 배울 거리가 있는가</span>
+        <span style="--c: var(--fun)">재미: 즐겁게 할 수 있는가</span>
+        <span style="--c: var(--novel)">참신: 새로운 생각이 담겼는가</span>
+      </div>
+      <div class="filters">
+        <label><input type="checkbox" id="only-todo"> 아직 점수를 바꾸지 않은 것만 보기</label>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="bar" id="bar" hidden>
+    <div class="wrap">
+      <div class="progress">
+        <div class="progress-text"><span id="progress-label"></span><span class="n" id="progress-n">0 / 0</span></div>
+        <div class="track"><div class="fill" id="progress-fill"></div></div>
+      </div>
+      <button class="btn" id="submit" type="button" disabled>제출하기</button>
+      <div class="confirm" id="confirm" hidden>
+        <span>이대로 제출할까요? 나중에 취소하고 다시 낼 수 있습니다.</span>
+        <button class="btn ghost" id="confirm-no" type="button">계속 고치기</button>
+        <button class="btn" id="confirm-yes" type="button">최종 제출</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<main id="view-result" hidden>
+  <div class="wrap">
+    <div id="result-lock" class="notice">총합 결과는 투표를 제출한 뒤에 볼 수 있습니다. 다른 사람의 점수가 내 판단에 영향을 주지 않도록 하기 위해서입니다.</div>
+    <div id="result-body" hidden>
+      <div class="stats">
+        <div class="stat"><b id="st-voters">0</b><span>참여한 사람</span></div>
+        <div class="stat"><b id="st-entries">0</b><span>심사한 콘텐츠</span></div>
+        <div class="stat"><b id="st-comments">0</b><span>남긴 코멘트</span></div>
+        <button class="btn ghost refresh" id="refresh" type="button">새로고침</button>
+      </div>
+      <div class="sortbar" id="sortbar">정렬
+        <button data-k="total" aria-pressed="true">총점</button>
+        <button data-k="0">교육</button>
+        <button data-k="1">재미</button>
+        <button data-k="2">참신</button>
+      </div>
+      <ol class="ranks" id="ranks"></ol>
+    </div>
+  </div>
+</main>
+
+<script>
+const ENTRIES = [{"id": "7b8e8d22", "title": "몬스터 서바이벌 — 무기를 키우며 살아남기", "desc": "몰려오는 몬스터를 피하며 무기와 룬 조합을 완성하는 생존 게임", "url": "https://boominkimlogibros.github.io/codmos-survival/play/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/7b8e8d225443461f897f453d487be6aa"}, {"id": "37792b92", "title": "태양계 탐험 — 우주선으로 행성 여행", "desc": "태양과 여덟 행성, 달을 우주선으로 직접 여행하는 3D 우주 탐험", "url": "https://codmos-space-travel.bm33728090.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/37792b92e80d32831c1d369f86cbd12a"}, {"id": "d9659ab6", "title": "슬라임 대식가", "desc": "이슬 한 방울에서 시작해 점점 큰 것을 삼키며 자라는 슬라임 게임", "url": "https://claude.ai/artifact/924B6JA2fV3szey8uBQVQY", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/d9659ab6380a5b75f3db8302c0ca1652"}, {"id": "491d8e0d", "title": "검 강화하기", "desc": "골드를 모아 낡은 목검을 한 단계씩 강화하는 확률 강화 게임", "url": "https://claude.ai/artifact/LLrkFtJ2W7pXpWNpXJFdqh", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/491d8e0defb69bfb295ac0ec19b4ff30"}, {"id": "b9a82959", "title": "코드모스 캐릭터로 즐기는 오목 — 컴퓨터와 대결하고 친구와 함께 두세요", "desc": "코드모스 캐릭터 돌로 컴퓨터나 친구와 두는 오목", "url": "https://codmos-omok.pages.dev/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/b9a82959a7aafb36e302527b5853ee4f"}, {"id": "4bd4b034", "title": "리듬 스튜디오 — 비트를 찍고 나만의 음악 만들기", "desc": "칸을 눌러 비트를 찍고 악기를 겹쳐 나만의 음악을 만드는 스튜디오", "url": "https://codmos-rhythm-studio.pages.dev/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/4bd4b0340eed4ae533c90cc9081dfe07"}, {"id": "4e0d53a2", "title": "포비의 우주선 착륙 🚀", "desc": "좌우 추진기와 한정된 연료로 우주선을 안전하게 착륙시키는 게임", "url": "https://app.notion.com/p/3f13188c425b809aac02e0b5b0c493b0", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/4e0d53a259ebc4af4f54f4c634f3fc13"}, {"id": "0a7ff668", "title": "Retro Racer · 퀴즈 레이서", "desc": "라이벌 다섯 명과 1위를 다투는 레이싱, 학습용 퀴즈 레이서 포함", "url": "https://geonwoologibros.github.io/retro-racer/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/0a7ff6689b95b3a5f7174440cfc14cb2"}, {"id": "cc1e3438", "title": "도산공원 — 친구와 산책하고 낙서하기", "desc": "코드모스 캐릭터로 친구와 도산공원을 산책하고 낙서하는 3D 공간", "url": "https://dosan-park.onrender.com/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/cc1e3438cec621dbec75c7bb6ea490f4"}, {"id": "77df80c9", "title": "제트의 저중력 점프 🚀", "desc": "제트팩 충전 시간을 조절해 저중력 행성의 발판을 건너는 점프 게임", "url": "https://app.notion.com/p/logibros/3f23188c425b809b8cf9fba30fa520ac", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/77df80c91432c8a4c3b6209fdc318e9a"}, {"id": "d9266213", "title": "수박게임", "desc": "같은 과일끼리 합치는 물리 퍼즐, 친구와 최대 4명이 함께 겨루기", "url": "https://geonwoologibros.github.io/suika-game/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/d9266213af54438dcd19a2d10d02aeca"}, {"id": "78f826dd", "title": "OX 퀴즈 — 정답 발판으로 이동!", "desc": "최대 32명이 정답 발판으로 이동해 끝까지 살아남는 3D OX 퀴즈", "url": "https://dosan-park.onrender.com/quiz.html", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/78f826dd931a9b90886fa0d053a72c88"}, {"id": "cf17fe2a", "title": "코드모스 로봇 스튜디오 — 나만의 로봇을 조립하고 중장비를 직접 조종해 보세요", "desc": "부품을 골라 로봇을 조립하고 중장비를 직접 조종하는 3D 실험 공간", "url": "https://codmos-robot-lab.pages.dev/robot-lab?mode=build", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/cf17fe2acc7e713d62725a50eae35d98"}, {"id": "88d8311d", "title": "CODMOS MERGE (웹/모바일)", "desc": "같은 천체를 합쳐 태양까지 만드는 합치기 게임", "url": "https://codmos-merge.hw-kim.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/88d8311db08a73e548361816034eeffc"}, {"id": "196e8ade", "title": "행성 쪼개기 — 튕기는 행성을 피하고 쏘기", "desc": "튕기는 행성을 피하고 쏴서 작은 행성으로 쪼개는 우주 아케이드", "url": "https://dosan-park.onrender.com/pang.html", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/196e8ade6d6026f4e22c83f2018da18b"}, {"id": "09546b06", "title": "테트리스 대전 — 줄을 지우고 마법으로 공격!", "desc": "줄을 지워 친구를 공격하는 실시간 테트리스 대전", "url": "https://dosan-park.onrender.com/tetris.html", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/09546b06eba9322a7cabbc96c47cabdf"}, {"id": "4d648928", "title": "피싱 오디세이", "desc": "실제 세계 지도 위를 항해하며 진짜 물고기를 낚는 오픈 월드 낚시", "url": "https://claude.ai/artifact/31KJhMPNjrbu4QEyKD7g2j", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/4d6489289e89866c6b976780217268bb"}, {"id": "fd6cd783", "title": "우주정거장 외계 생명체 키우기", "desc": "", "url": "https://codmos-alien-lab.joy-h768077209.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/fd6cd7834a0924b7322720705661f537"}, {"id": "081b51bc", "title": "우주 정비실", "desc": "", "url": "https://codmos-robot-lab.joy-h768077209.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/081b51bcf3c0044156483a0045585518"}, {"id": "37e38e6d", "title": "스노우모스 ❄️ 눈싸움 한판 할까?", "desc": "피하고 모으고 던지는 60초 1:1 눈싸움", "url": "https://snowmos-snowball-duel.snowy-stone-4379.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/37e38e6dd16d7c7ff10b4191fe8c545f"}, {"id": "75ee8115", "title": "숲속 디펜스", "desc": "수비대를 배치해 24개 웨이브의 몬스터를 막는 숲속 디펜스", "url": "https://forest-defense.snowy-stone-4379.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/75ee8115ce5ec5f53214dede155d589c"}, {"id": "b4eca811", "title": "불량학교 — 친구와 1:1 배틀", "desc": "학교를 무대로 코드모스 캐릭터 47종이 겨루는 3D 격투 게임", "url": "https://dosan-park.onrender.com/fight.html", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/b4eca8113ab203a92b24bea52323b06c"}, {"id": "e1d73556", "title": "서든모스 — 친구라고 봐주지 마!", "desc": "코드모스 캐릭터로 친구와 처치 점수를 겨루는 브라우저 FPS", "url": "https://suddenmos.sbw0121.workers.dev/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/e1d7355623d6e07c08e8e6880f85ec66"}, {"id": "aa841986", "title": "(공부해라!) 알고리즘 놀이터 — 숫자가 춤추고, 토끼가 길을 찾아요!", "desc": "정렬과 길 찾기 알고리즘이 움직이는 모습을 보며 배우는 놀이터", "url": "https://codmos-algorithm-playground.sbw0121.workers.dev/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/aa8419865fecd0b94c3d316c5f5758bd"}, {"id": "f2fedd0a", "title": "우주 디펜스", "desc": "몬스터를 막으며 로봇 세 종류를 소환해 우주 정거장을 지키는 디펜스", "url": "https://codmos-space-defense.joy-h768077209.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/f2fedd0a5413329ea80bfaeb27b5bcc7"}, {"id": "72f639b2", "title": "오토팜 스테이션", "desc": "우주정거장 온실의 드론을 파이썬으로 코딩해 재배를 자동화하는 게임", "url": "https://geonwoologibros.github.io/autofarm-station/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/72f639b207800bc575fe689038e6cb00"}, {"id": "d78b7e1d", "title": "과학실험실", "desc": "", "url": "https://little-science-lab.polite-swift-2868.chatgpt.site", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/d78b7e1d55f4d23e63410ee395f5e9db"}, {"id": "2e9fb114", "title": "IT회사 키우기 — 작은 차고에서 시작하는 CEO", "desc": "작은 차고에서 시작해 나만의 IT회사를 키우는 3D 경영 게임", "url": "https://dosan-park.onrender.com/company.html", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/2e9fb1145eb78ddcc6410a6b0a754e53"}, {"id": "d384f503", "title": "Bump Arena", "desc": "공으로 상대를 밀어 화면 밖으로 떨어뜨리는 실시간 물리 대전", "url": "https://geonwoologibros.github.io/bump-arena/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/d384f503e27832c6528742dd962dadd4"}, {"id": "a61587fb", "title": "달빛 우체부 · 달빛 아래 걷는 작은 RPG", "desc": "픽셀 밤길을 걸으며 도착하지 못한 편지를 전하는 1인 RPG", "url": "https://moonlit-post-online.sbw0121.workers.dev/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/a61587fb9e47e6bdb650ab232eca0e29"}, {"id": "29141646", "title": "Gear Works", "desc": "맨손 채광에서 시작해 스스로 돌아가는 공장을 짓는 자동화 게임", "url": "https://claude.ai/artifact/Q6ikbknCNXthJEaaWuvYwN", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/29141646709111ed34e3d88e6f238c1d"}, {"id": "ae2071ee", "title": "인생네컷", "desc": "당신의 5천원을 아껴 드리는 인생네컷 사진 만들기", "url": "https://four-cut-moments.polite-swift-2868.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/ae2071eea0f3a01d9f337cffb2801bbb"}, {"id": "e3146d49", "title": "뚝딱 게임 공방", "desc": "블록을 선으로 이어 작은 게임을 완성하는, 게임을 만드는 게임", "url": "https://claude.ai/artifact/RV6E14Fy8aXUH61jmMBUv4", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/e3146d49dfeafa366303ec8b0a0ef022"}, {"id": "40020711", "title": "우리 안의 규칙", "desc": "낱말 블록으로 문장을 만들면 그 문장이 규칙이 되는 목장 퍼즐", "url": "https://claude.ai/artifact/85TBZ99oFqKrLDsk5cWPkD", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/40020711c88cf69a1c29437a2fed80ec"}, {"id": "27e3a039", "title": "🚀 ASTRO JUMP | 아스트로 점프", "desc": "우주비행사가 되어 행성을 넘나들며 깃발을 꽂는 2D 점프 어드벤처", "url": "https://codmos-astro-jump.joy-h768077209.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/27e3a039a4fbc3fec2fb4de40bd771e4"}, {"id": "5c2888c3", "title": "🫧 버블 배틀 아레나", "desc": "같은 색 버블을 터뜨리며 다섯 스테이지에 도전하는 우주 버블 슈팅", "url": "https://bubble-battle-arena.joy-h768077209.chatgpt.site/", "post": "https://codmos-creator-studio.bm33728090.chatgpt.site/#community/5c2888c3b1ddd7479e5d080666e1bdb8"}];
+const CRITS = [
+  { key: "edu", label: "교육", q: "교육적인 부분이 있는가?", c: "var(--edu)" },
+  { key: "fun", label: "재미", q: "재미가 있는가?", c: "var(--fun)" },
+  { key: "novel", label: "참신", q: "콘텐츠가 참신한가?", c: "var(--novel)" },
+];
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
+const CODE_KEY = "codmos-score:code";
+const DRAFT_PREFIX = "codmos-score:draft:";
+const TAB_KEY = "codmos-score:tab";
+
+// ── Firestore REST ──
+// 보안 규칙은 game-projects/gardener-replaced/firestore.rules의 codmos 부분에 있다.
+const PROJECT = "autofarm-station";
+const API_KEY = "AIzaSyBRFowkjGME7XMab-YWqwMb6eT0QYLz730";
+const DOC_ROOT = `projects/${PROJECT}/databases/(default)/documents`;
+const API = "https://firestore.googleapis.com/v1/";
+
+function enc(v) {
+  if (typeof v === "string") return { stringValue: v };
+  if (typeof v === "number") return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(enc) } };
+  if (v && typeof v === "object") return { mapValue: { fields: encFields(v) } };
+  return { nullValue: null };
+}
+function encFields(o) { const f = {}; for (const k in o) f[k] = enc(o[k]); return f; }
+function dec(v) {
+  if ("stringValue" in v) return v.stringValue;
+  if ("integerValue" in v) return Number(v.integerValue);
+  if ("doubleValue" in v) return v.doubleValue;
+  if ("arrayValue" in v) return (v.arrayValue.values || []).map(dec);
+  if ("mapValue" in v) return decFields(v.mapValue.fields || {});
+  if ("timestampValue" in v) return v.timestampValue;
+  return null;
+}
+function decFields(f) { const o = {}; for (const k in f) o[k] = dec(f[k]); return o; }
+
+async function getDoc(path) {
+  const r = await fetch(`${API}${DOC_ROOT}/${path}?key=${API_KEY}`);
+  if (r.status === 404 || r.status === 403) return null;
+  if (!r.ok) throw new Error("http " + r.status);
+  const j = await r.json();
+  return decFields(j.fields || {});
+}
+async function listBallots() {
+  const out = [];
+  let token = "";
+  for (let i = 0; i < 20; i++) {
+    const r = await fetch(`${API}${DOC_ROOT}/codmosBallots?pageSize=300&key=${API_KEY}${token ? "&pageToken=" + encodeURIComponent(token) : ""}`);
+    if (!r.ok) throw new Error("http " + r.status);
+    const j = await r.json();
+    (j.documents || []).forEach((d) => out.push(decFields(d.fields || {})));
+    if (!j.nextPageToken) break;
+    token = j.nextPageToken;
+  }
+  return out;
+}
+async function commit(writes) {
+  const r = await fetch(`${API}${DOC_ROOT}:commit?key=${API_KEY}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ writes }),
+  });
+  if (!r.ok) { const e = new Error("http " + r.status); e.status = r.status; throw e; }
+}
+const docName = (path) => `${DOC_ROOT}/${path}`;
+// 코드가 유효하면 규칙이 읽기를 허용해 404(문서 없음)가, 무효하면 403이 온다.
+async function checkCode(hh) {
+  const r = await fetch(`${API}${DOC_ROOT}/codmosCodes/${hh}?key=${API_KEY}`);
+  if (r.status === 404 || r.ok) return true;
+  if (r.status === 403) return false;
+  throw new Error("http " + r.status);
+}
+
+// ── 투표 코드 ──
+function normCode(s) { return String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
+function showCode(c) { return c.length === 12 ? [c.slice(0, 4), c.slice(4, 8), c.slice(8)].join("-") : c; }
+async function hashCode(c) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("codmos-score:v1:" + c));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function newNonce() { const a = new Uint8Array(16); crypto.getRandomValues(a); return [...a].map((b) => b.toString(16).padStart(2, "0")).join(""); }
+
+// ── 상태 ──
+let code = null, h = null, myBallot = null, ballots = null, sortKey = "total", busy = false;
+let draft = { scores: {}, comments: {} };
+function loadDraft() {
+  draft = { scores: {}, comments: {} };
+  try { const s = JSON.parse(store.get(DRAFT_PREFIX + h) || "null"); if (s && s.scores) draft = { scores: s.scores, comments: s.comments || {} }; } catch (e) {}
+}
+function saveDraft() { if (h) store.set(DRAFT_PREFIX + h, JSON.stringify(draft)); }
+
+// 점수를 고르지 않은 항목은 1점으로 낸다.
+const DEFAULT_SCORES = [1, 1, 1];
+function scoresOf(id) { const s = draft.scores[id]; return Array.isArray(s) && s.length === 3 && s.every((v) => v >= 1 && v <= 10) ? s : DEFAULT_SCORES.slice(); }
+function isTouched(id) { return Array.isArray(draft.scores[id]); }
+function locked() { return !code || !!myBallot; }
+function showStatus(text, warn) { const el = $("status"); el.textContent = text || ""; el.className = "notice" + (warn ? " warn" : ""); el.hidden = !text; }
+
+// ── 심사 카드 ──
+function buildGrid() {
+  const grid = $("grid");
+  grid.textContent = "";
+  ENTRIES.forEach((e, i) => {
+    const card = document.createElement("article");
+    card.className = "card"; card.id = "card-" + e.id;
+    card.innerHTML = `
+      <div class="thumb"><img loading="lazy" alt=""><span class="num"></span><span class="badge" hidden>매김</span></div>
+      <div class="body">
+        <h2 class="title"></h2>
+        <p class="desc"></p>
+        <div class="meta"><a target="_blank" rel="noopener" class="play">플레이하기 ↗</a><a target="_blank" rel="noopener" class="post">게시물 ↗</a></div>
+        <div class="crits"></div>
+        <div class="comment"><label for="cm-${e.id}">코멘트 (선택)</label><textarea id="cm-${e.id}" maxlength="500" placeholder="자유롭게 남겨 주세요"></textarea></div>
+      </div>`;
+    const img = card.querySelector("img");
+    img.src = "thumbs/" + e.id + ".jpg"; img.alt = e.title + " 썸네일";
+    card.querySelector(".num").textContent = String(i + 1).padStart(2, "0") + " / " + ENTRIES.length;
+    card.querySelector(".title").textContent = e.title;
+    const d = card.querySelector(".desc");
+    if (e.desc) d.textContent = e.desc; else { d.textContent = "게시물에 설명이 없습니다."; d.classList.add("none"); }
+    card.querySelector(".play").href = e.url;
+    card.querySelector(".post").href = e.post;
+    const crits = card.querySelector(".crits");
+    CRITS.forEach((c, ci) => {
+      const row = document.createElement("div");
+      row.className = "crit"; row.style.setProperty("--c", c.c);
+      row.innerHTML = `<div class="crit-head"><b></b><span class="val">-</span></div><div class="scale" role="radiogroup"></div>`;
+      row.querySelector("b").textContent = c.q;
+      const scale = row.querySelector(".scale");
+      scale.setAttribute("aria-label", e.title + " " + c.label + " 점수");
+      for (let v = 1; v <= 10; v++) {
+        const b = document.createElement("button");
+        b.type = "button"; b.textContent = v; b.dataset.ci = ci; b.dataset.v = v;
+        b.setAttribute("role", "radio"); b.setAttribute("aria-label", v + "점");
+        scale.appendChild(b);
+      }
+      crits.appendChild(row);
+    });
+    const ta = card.querySelector("textarea");
+    ta.addEventListener("input", () => { draft.comments[e.id] = ta.value; saveDraft(); });
+    card.addEventListener("click", (ev) => {
+      const b = ev.target.closest(".scale button");
+      if (!b || locked()) return;
+      const s = scoresOf(e.id);
+      s[+b.dataset.ci] = +b.dataset.v;
+      draft.scores[e.id] = s;
+      saveDraft();
+      paintCard(e.id); paintProgress(); applyFilter();
+    });
+    grid.appendChild(card);
+  });
+}
+
+function paintCard(id) {
+  const card = $("card-" + id);
+  const s = scoresOf(id);
+  card.querySelectorAll(".scale").forEach((scale, ci) => {
+    scale.querySelectorAll("button").forEach((b) => {
+      const v = +b.dataset.v;
+      b.classList.toggle("on", s[ci] === v);
+      b.classList.toggle("lit", s[ci] > v);
+      b.setAttribute("aria-checked", s[ci] === v ? "true" : "false");
+      b.disabled = locked();
+    });
+    scale.parentElement.querySelector(".val").textContent = s[ci] ? s[ci] + " / 10" : "-";
+  });
+  const ta = card.querySelector("textarea");
+  if (document.activeElement !== ta) ta.value = draft.comments[id] || "";
+  ta.disabled = locked();
+  const done = isTouched(id);
+  card.classList.toggle("done", done);
+  card.querySelector(".badge").hidden = !done;
+}
+function paintAll() { ENTRIES.forEach((e) => paintCard(e.id)); paintProgress(); applyFilter(); }
+function doneCount() { return ENTRIES.filter((e) => isTouched(e.id)).length; }
+
+function paintProgress() {
+  $("bar").hidden = !code || !!myBallot;
+  const n = doneCount(), total = ENTRIES.length;
+  $("progress-n").textContent = n + " / " + total;
+  $("progress-fill").style.width = (n / total * 100) + "%";
+  $("progress-label").textContent = n === total ? "모든 콘텐츠에 점수를 매겼습니다" : "점수를 고르지 않은 항목은 1점으로 제출됩니다";
+  $("submit").disabled = busy;
+}
+function applyFilter() {
+  const only = $("only-todo").checked && !locked();
+  ENTRIES.forEach((e) => { $("card-" + e.id).hidden = only && isTouched(e.id); });
+}
+
+// 화면 전체를 지금 상태에 맞춘다
+function render() {
+  $("gate").hidden = !!code;
+  $("ballot-area").hidden = !code;
+  if (code) $("who-code").textContent = showCode(code);
+  $("voted").hidden = !myBallot;
+  $("cancel-vote").hidden = false; $("cancel-confirm").hidden = true;
+  $("only-todo").disabled = !!myBallot;
+  if (myBallot) $("only-todo").checked = false;
+  paintAll();
+  paintResults();
+}
+
+// ── 코드 확인 ──
+async function useCode(raw, quiet) {
+  const c = normCode(raw);
+  const err = $("code-err");
+  err.hidden = true;
+  if (c.length !== 12) { if (!quiet) { err.textContent = "코드는 영문과 숫자 12자리입니다."; err.hidden = false; } return; }
+  $("code-go").disabled = true;
+  try {
+    const hh = await hashCode(c);
+    const valid = await checkCode(hh);
+    if (!valid) {
+      if (!quiet) { err.textContent = "등록되지 않은 코드입니다. 받은 코드를 다시 확인해 주세요."; err.hidden = false; }
+      else store.del(CODE_KEY);
+      return;
+    }
+    const ballot = await getDoc("codmosBallots/" + hh);
+    code = c; h = hh; store.set(CODE_KEY, c);
+    if (ballot && ballot.scores) {
+      myBallot = ballot;
+      draft = { scores: ballot.scores, comments: ballot.comments || {} };
+    } else {
+      myBallot = null;
+      loadDraft();
+    }
+    showStatus("", false);
+    render();
+  } catch (e) {
+    err.textContent = "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요."; err.hidden = false;
+  } finally { $("code-go").disabled = false; }
+}
+$("code-form").addEventListener("submit", (ev) => { ev.preventDefault(); useCode($("code-input").value, false); });
+$("switch-code").addEventListener("click", () => {
+  code = null; h = null; myBallot = null; draft = { scores: {}, comments: {} };
+  store.del(CODE_KEY); $("code-input").value = ""; showStatus("", false);
+  render(); $("code-input").focus();
+});
+
+// ── 제출 ──
+$("only-todo").addEventListener("change", applyFilter);
+$("submit").addEventListener("click", () => { $("submit").hidden = true; $("confirm").hidden = false; });
+$("confirm-no").addEventListener("click", () => { $("confirm").hidden = true; $("submit").hidden = false; paintProgress(); });
+$("confirm-yes").addEventListener("click", async () => {
+  if (busy) return;
+  busy = true; $("confirm-yes").disabled = true;
+  try {
+    const scores = {}, comments = {};
+    ENTRIES.forEach((e) => {
+      scores[e.id] = scoresOf(e.id).slice(0, 3);
+      const t = (draft.comments[e.id] || "").trim();
+      if (t) comments[e.id] = t.slice(0, 500);
+    });
+    const nonce = newNonce();
+    await commit([
+      { update: { name: docName("codmosKeys/" + h), fields: encFields({ code, nonce }) } },
+      {
+        update: { name: docName("codmosBallots/" + h), fields: encFields({ v: 1, scores, comments, nonce }) },
+        updateTransforms: [{ fieldPath: "at", setToServerValue: "REQUEST_TIME" }],
+        currentDocument: { exists: false },
+      },
+    ]);
+    myBallot = { v: 1, scores, comments };
+    store.del(DRAFT_PREFIX + h);
+    $("confirm").hidden = true; $("submit").hidden = false;
+    showStatus("투표를 제출했습니다. 총합 결과에서 지금까지의 점수를 볼 수 있습니다.", false);
+    ballots = null;
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (e) {
+    if (e.status >= 400 && e.status < 500) {
+      // 다른 기기에서 같은 코드로 이미 냈을 수 있다. 서버 상태를 다시 읽는다.
+      $("confirm").hidden = true; $("submit").hidden = false;
+      await useCode(code, true);
+      showStatus(myBallot
+        ? "이 코드로 이미 낸 투표가 있습니다. 다시 하려면 먼저 투표를 취소해 주세요."
+        : "투표를 저장하지 못했습니다. 코드를 다시 확인해 주세요.", true);
+    } else {
+      showStatus("제출하지 못했습니다. 인터넷 연결을 확인하고 다시 눌러 주세요.", true);
+    }
+  } finally { busy = false; $("confirm-yes").disabled = false; paintProgress(); }
+});
+
+// ── 취소하고 다시 하기 ──
+$("cancel-vote").addEventListener("click", () => { $("cancel-vote").hidden = true; $("cancel-confirm").hidden = false; });
+$("cancel-no").addEventListener("click", () => { $("cancel-vote").hidden = false; $("cancel-confirm").hidden = true; });
+$("cancel-yes").addEventListener("click", async () => {
+  if (busy) return;
+  busy = true; $("cancel-yes").disabled = true;
+  try {
+    await commit([
+      { update: { name: docName("codmosKeys/" + h), fields: encFields({ code, nonce: newNonce() }) } },
+      { delete: docName("codmosBallots/" + h) },
+    ]);
+    // 낸 점수를 그대로 두고 고칠 수 있게 한다
+    draft = { scores: myBallot.scores || {}, comments: myBallot.comments || {} };
+    saveDraft();
+    myBallot = null; ballots = null;
+    if (!$("view-result").hidden) setTab("vote");
+    showStatus("투표를 취소했습니다. 점수를 고친 뒤 다시 제출해 주세요.", false);
+    render();
+  } catch (e) {
+    showStatus("투표를 취소하지 못했습니다. 잠시 후 다시 시도해 주세요.", true);
+  } finally { busy = false; $("cancel-yes").disabled = false; }
+});
+
+// ── 탭 ──
+function setTab(which) {
+  $("tab-vote").setAttribute("aria-selected", which === "vote");
+  $("tab-result").setAttribute("aria-selected", which === "result");
+  $("view-vote").hidden = which !== "vote";
+  $("view-result").hidden = which !== "result";
+  store.set(TAB_KEY, which);
+  paintResults();
+}
+$("tab-vote").addEventListener("click", () => setTab("vote"));
+$("tab-result").addEventListener("click", () => setTab("result"));
+$("sortbar").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button"); if (!b) return;
+  sortKey = b.dataset.k;
+  $("sortbar").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+  paintResults();
+});
+$("refresh").addEventListener("click", () => { ballots = null; paintResults(); });
+
+// ── 총합 ──
+// 주최자는 주소 끝에 #results를 붙여 투표하지 않고도 결과를 본다.
+function canSeeResults() { return !!myBallot || location.hash === "#results"; }
+function validScore(v) { return Number.isInteger(v) && v >= 1 && v <= 10; }
+function aggregate() {
+  const agg = {};
+  ENTRIES.forEach((e) => { agg[e.id] = { sum: [0, 0, 0], n: 0, comments: [] }; });
+  ballots.forEach((b) => {
+    const sc = b && b.scores; if (!sc || typeof sc !== "object") return;
+    ENTRIES.forEach((e) => {
+      const s = sc[e.id];
+      if (Array.isArray(s) && s.length === 3 && s.every(validScore)) {
+        const a = agg[e.id]; a.n++; s.forEach((v, i) => { a.sum[i] += v; });
+      }
+      const c = b.comments && b.comments[e.id];
+      if (typeof c === "string" && c.trim()) agg[e.id].comments.push(c.trim().slice(0, 500));
+    });
+  });
+  return ENTRIES.map((e) => {
+    const a = agg[e.id];
+    const avg = a.sum.map((s) => (a.n ? s / a.n : 0));
+    return { e, n: a.n, avg, total: avg[0] + avg[1] + avg[2], comments: shuffle(a.comments, e.id) };
+  });
+}
+// 코멘트 순서로 누가 썼는지 짐작하지 못하게 콘텐츠마다 다른 고정 순서로 섞는다.
+function shuffle(arr, seed) {
+  let x = 2166136261; for (const ch of seed) x = Math.imul(x ^ ch.charCodeAt(0), 16777619);
+  const a = arr.slice().sort();
+  for (let i = a.length - 1; i > 0; i--) { x = Math.imul(x ^ (x >>> 13), 1274126177); const j = (x >>> 0) % (i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+const fmt = (v) => v.toFixed(1);
+
+let loading = false;
+async function paintResults() {
+  if ($("view-result").hidden) return;
+  const see = canSeeResults();
+  $("result-lock").hidden = see;
+  $("result-body").hidden = !see;
+  if (!see) return;
+  if (ballots === null) {
+    if (loading) return;
+    loading = true; $("refresh").disabled = true;
+    $("ranks").innerHTML = '<p class="empty">결과를 불러오는 중입니다</p>';
+    try { ballots = await listBallots(); }
+    catch (e) { $("ranks").innerHTML = '<p class="empty">결과를 불러오지 못했습니다. 새로고침을 눌러 주세요.</p>'; return; }
+    finally { loading = false; $("refresh").disabled = false; }
+  }
+  const rows = aggregate();
+  const key = sortKey === "total" ? (r) => r.total : (r) => r.avg[+sortKey];
+  rows.sort((a, b) => key(b) - key(a) || b.total - a.total || b.n - a.n);
+  $("st-voters").textContent = ballots.length;
+  $("st-entries").textContent = ENTRIES.length;
+  $("st-comments").textContent = rows.reduce((s, r) => s + r.comments.length, 0);
+  const list = $("ranks");
+  const open = new Set([...list.querySelectorAll("details[open]")].map((d) => d.dataset.id));
+  list.textContent = "";
+  if (!ballots.length) { const p = document.createElement("p"); p.className = "empty"; p.textContent = "아직 제출된 투표가 없습니다. 첫 투표가 들어오면 여기에 순위가 나타납니다."; list.appendChild(p); return; }
+  let prev = null, rank = 0;
+  rows.forEach((r, i) => {
+    const v = key(r); if (v !== prev) { rank = i + 1; prev = v; }
+    const li = document.createElement("li");
+    li.className = "rank";
+    li.innerHTML = `
+      <div class="rank-main">
+        <div class="rank-no"></div>
+        <img class="rank-thumb" alt="" loading="lazy">
+        <div class="rank-info"><h3 class="title"></h3><div class="bars"></div></div>
+        <div class="total"><b></b><span></span></div>
+      </div>`;
+    li.querySelector(".rank-no").textContent = r.n ? rank : "-";
+    li.querySelector(".rank-thumb").src = "thumbs/" + r.e.id + ".jpg";
+    li.querySelector(".title").textContent = r.e.title;
+    const bars = li.querySelector(".bars");
+    CRITS.forEach((c, ci) => {
+      const m = document.createElement("div");
+      m.className = "mini"; m.style.setProperty("--c", c.c);
+      m.innerHTML = `<span></span><div class="t"><i></i></div><span class="v"></span>`;
+      m.children[0].textContent = c.label;
+      m.querySelector("i").style.width = (r.avg[ci] * 10) + "%";
+      m.querySelector(".v").textContent = r.n ? fmt(r.avg[ci]) : "-";
+      bars.appendChild(m);
+    });
+    li.querySelector(".total b").textContent = r.n ? (sortKey === "total" ? fmt(r.total) : fmt(r.avg[+sortKey])) : "-";
+    li.querySelector(".total span").textContent = (sortKey === "total" ? "총점 / 30" : CRITS[+sortKey].label + " 평균 / 10") + " · " + r.n + "명";
+    const det = document.createElement("details");
+    det.dataset.id = r.e.id;
+    if (open.has(r.e.id)) det.open = true;
+    const sum = document.createElement("summary");
+    sum.textContent = "코멘트 " + r.comments.length + "개";
+    det.appendChild(sum);
+    const ul = document.createElement("ul"); ul.className = "comments";
+    if (!r.comments.length) { const x = document.createElement("li"); x.textContent = "아직 코멘트가 없습니다."; ul.appendChild(x); }
+    r.comments.forEach((t) => { const x = document.createElement("li"); x.textContent = t; ul.appendChild(x); });
+    det.appendChild(ul);
+    li.appendChild(det);
+    list.appendChild(li);
+  });
+}
+window.addEventListener("hashchange", () => { if (location.hash === "#results") setTab("result"); else paintResults(); });
+
+// ── 시작 ──
+buildGrid();
+render();
+if (location.hash === "#results" || store.get(TAB_KEY) === "result") setTab("result");
+const saved = store.get(CODE_KEY);
+if (saved) useCode(saved, true);
+</script>
+</body>
+</html>
