@@ -108,6 +108,8 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(28px, 
 .rank-thumb { width: 112px; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; display: block; background: var(--line); }
 .rank-info { min-width: 0; }
 .rank-info .title { font-size: 15px; }
+.rank-info .desc { font-size: 13px; margin: 2px 0 4px; }
+.rank-info .meta { font-size: 13px; margin-bottom: 6px; }
 .bars { display: grid; gap: 3px; margin-top: 6px; max-width: 360px; }
 .mini { display: grid; grid-template-columns: 34px 1fr 38px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
 .mini .t { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }

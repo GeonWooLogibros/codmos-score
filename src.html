@@ -488,12 +488,15 @@ async function paintResults() {
       <div class="rank-main">
         <div class="rank-no"></div>
         <img class="rank-thumb" alt="" loading="lazy">
-        <div class="rank-info"><h3 class="title"></h3><div class="bars"></div></div>
+        <div class="rank-info"><h3 class="title"></h3><p class="desc"></p><div class="meta"><a target="_blank" rel="noopener" class="play">플레이하기 ↗</a></div><div class="bars"></div></div>
         <div class="total"><b></b><span></span></div>
       </div>`;
     li.querySelector(".rank-no").textContent = r.n ? rank : "-";
     li.querySelector(".rank-thumb").src = "thumbs/" + r.e.id + ".jpg";
     li.querySelector(".title").textContent = r.e.title;
+    const d = li.querySelector(".desc");
+    if (r.e.desc) d.textContent = r.e.desc; else { d.textContent = "게시물에 설명이 없습니다."; d.classList.add("none"); }
+    li.querySelector(".play").href = r.e.url;
     const bars = li.querySelector(".bars");
     CRITS.forEach((c, ci) => {
       const m = document.createElement("div");
